@@ -14,12 +14,8 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options connectionOptions: UIScene.ConnectionOptions) {
         guard let windowScene = (scene as? UIWindowScene) else { return }
         
-        // Create window with the windowScene
         window = UIWindow(windowScene: windowScene)
-        
-        // Set the main tab bar controller as the root view controller
-        let mainTabBarController = MainTabBarController()
-        window?.rootViewController = mainTabBarController
+        window?.rootViewController = ViewController()
         window?.makeKeyAndVisible()
     }
 
@@ -33,6 +29,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
     func sceneDidBecomeActive(_ scene: UIScene) {
         // Called when the scene has moved from an inactive state to an active state.
         // Use this method to restart any tasks that were paused (or not yet started) when the scene was inactive.
+        
+        // Reset badge count when app becomes active
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        
+        // Update overdue reminders
+        HealthReminderDataStore.shared.updateOverdueReminders()
     }
 
     func sceneWillResignActive(_ scene: UIScene) {
@@ -49,6 +51,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         // Called as the scene transitions from the foreground to the background.
         // Use this method to save data, release shared resources, and store enough scene-specific state information
         // to restore the scene back to its current state.
+        
+        // Schedule local notifications for upcoming medications and appointments
+        let notificationService = NotificationService.shared
+        notificationService.scheduleAllPendingMedicationReminders()
+        notificationService.scheduleAllPendingAppointmentReminders()
+        notificationService.scheduleAllPendingHealthReminders()
     }
 }
 
