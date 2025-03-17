@@ -30,6 +30,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
         MedicationDataStore.shared.loadSampleDataIfNeeded()
         AppointmentDataStore.shared.loadSampleDataIfNeeded()
         HealthReminderDataStore.shared.loadSampleDataIfNeeded()
+        HealthRecordDataStore.shared.loadSampleDataIfNeeded()
         
         return true
     }

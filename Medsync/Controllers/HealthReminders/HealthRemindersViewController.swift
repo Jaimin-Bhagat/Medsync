@@ -81,8 +81,8 @@ extension HealthRemindersViewController: UITableViewDelegate, UITableViewDataSou
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        let upcomingReminders = reminders.filter { !$0.completed }
-        let completedReminders = reminders.filter { $0.completed }
+        let upcomingReminders = reminders.filter { $0.status != .completed }
+        let completedReminders = reminders.filter { $0.status == .completed }
         
         return section == 0 ? upcomingReminders.count : completedReminders.count
     }
@@ -92,8 +92,8 @@ extension HealthRemindersViewController: UITableViewDelegate, UITableViewDataSou
             return UITableViewCell()
         }
         
-        let upcomingReminders = reminders.filter { !$0.completed }
-        let completedReminders = reminders.filter { $0.completed }
+        let upcomingReminders = reminders.filter { $0.status != .completed }
+        let completedReminders = reminders.filter { $0.status == .completed }
         
         let reminder = indexPath.section == 0 ? upcomingReminders[indexPath.row] : completedReminders[indexPath.row]
         cell.configure(with: reminder)

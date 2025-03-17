@@ -159,22 +159,11 @@ struct VitalSigns: Codable, Identifiable {
     var formattedTemperature: String? {
         guard let temperature = temperature else { return nil }
         
-    var allergies: [String]
-    var conditions: [String]
-    var bloodType: String?
-    var emergencyContacts: [EmergencyContact]
-    var documents: [HealthDocument]
-    var vitalRecords: [VitalRecord]
-    
-    struct EmergencyContact: Identifiable, Codable {
-        var id = UUID()
-        var name: String
-        var relationship: String
-        var phone: String
-        var email: String?
+        return String(format: "%.1f °F", temperature)
     }
 }
 
+// Health Document model
 struct HealthDocument: Identifiable, Codable {
     var id = UUID()
     var title: String
@@ -184,6 +173,7 @@ struct HealthDocument: Identifiable, Codable {
     var category: String
 }
 
+// Vital Record model
 struct VitalRecord: Identifiable, Codable {
     var id = UUID()
     var type: VitalType
@@ -224,4 +214,4 @@ enum VitalType: String, Codable, CaseIterable {
         case .oxygenSaturation: return "%"
         }
     }
-} 
+}

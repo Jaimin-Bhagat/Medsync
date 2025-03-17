@@ -4,6 +4,8 @@ class HealthRecordsViewController: UIViewController {
     
     private let tableView = UITableView(frame: .zero, style: .insetGrouped)
     private var healthProfile: HealthProfile?
+    private var vitalSigns: [VitalSigns] = []
+    private var healthDocuments: [HealthDocument] = []
     
     private let sections = ["Profile", "Vitals", "Documents"]
     
@@ -11,12 +13,12 @@ class HealthRecordsViewController: UIViewController {
         super.viewDidLoad()
         setupView()
         setupTableView()
-        loadHealthProfile()
+        loadData()
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
-        loadHealthProfile()
+        loadData()
         tableView.reloadData()
     }
     
@@ -46,27 +48,35 @@ class HealthRecordsViewController: UIViewController {
         tableView.register(ProfileCell.self, forCellReuseIdentifier: "ProfileCell")
     }
     
-    private func loadHealthProfile() {
-        healthProfile = DataStore.shared.loadHealthProfile()
+    private func loadData() {
+        // Load health profile
+        healthProfile = HealthRecordDataStore.shared.getHealthProfile()
         
         // If no profile exists, create a basic one
         if healthProfile == nil {
+            let calendar = Calendar.current
+            let birthDate = calendar.date(byAdding: .year, value: -30, to: Date())!
+            
             let newProfile = HealthProfile(
-                name: "Your Name",
-                dateOfBirth: Date(),
+                firstName: "Your",
+                lastName: "Name",
+                dateOfBirth: birthDate,
                 gender: "Not Specified",
-                height: nil,
-                allergies: [],
-                conditions: [],
                 bloodType: nil,
-                emergencyContacts: [],
-                documents: [],
-                vitalRecords: []
+                height: nil,
+                weight: nil,
+                emergencyContacts: nil,
+                allergies: nil,
+                chronicConditions: nil
             )
             
             healthProfile = newProfile
-            DataStore.shared.saveHealthProfile(newProfile)
+            HealthRecordDataStore.shared.saveHealthProfile(newProfile)
         }
+        
+        // Load vital signs and documents
+        vitalSigns = HealthRecordDataStore.shared.getAllVitalSigns()
+        healthDocuments = HealthRecordDataStore.shared.getAllHealthDocuments()
     }
     
     @objc private func addTapped() {
@@ -121,15 +131,13 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        guard let profile = healthProfile else { return 0 }
-        
         switch sections[section] {
         case "Profile":
             return 1
         case "Vitals":
-            return profile.vitalRecords.isEmpty ? 1 : min(profile.vitalRecords.count, 3)
+            return vitalSigns.isEmpty ? 1 : min(vitalSigns.count, 3)
         case "Documents":
-            return profile.documents.isEmpty ? 1 : min(profile.documents.count, 3)
+            return healthDocuments.isEmpty ? 1 : min(healthDocuments.count, 3)
         default:
             return 0
         }
@@ -147,7 +155,7 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
             return cell
             
         case "Vitals":
-            if profile.vitalRecords.isEmpty {
+            if vitalSigns.isEmpty {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
                 cell.textLabel?.text = "No vital records"
                 cell.textLabel?.textColor = .secondaryLabel
@@ -155,18 +163,28 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
                 return cell
             } else {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-                let vitalRecord = profile.vitalRecords.sorted(by: { $0.date > $1.date })[indexPath.row]
+                let vitalSign = vitalSigns[indexPath.row]
                 
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateStyle = .short
                 
-                cell.textLabel?.text = "\(vitalRecord.type.displayName): \(vitalRecord.value) \(vitalRecord.unit) (\(dateFormatter.string(from: vitalRecord.date)))"
+                var displayText = dateFormatter.string(from: vitalSign.date)
+                
+                if let systolic = vitalSign.bloodPressureSystolic, let diastolic = vitalSign.bloodPressureDiastolic {
+                    displayText += " - BP: \(systolic)/\(diastolic)"
+                }
+                
+                if let heartRate = vitalSign.heartRate {
+                    displayText += " - HR: \(heartRate)"
+                }
+                
+                cell.textLabel?.text = displayText
                 cell.accessoryType = .disclosureIndicator
                 return cell
             }
             
         case "Documents":
-            if profile.documents.isEmpty {
+            if healthDocuments.isEmpty {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
                 cell.textLabel?.text = "No documents"
                 cell.textLabel?.textColor = .secondaryLabel
@@ -174,7 +192,7 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
                 return cell
             } else {
                 let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-                let document = profile.documents.sorted(by: { $0.date > $1.date })[indexPath.row]
+                let document = healthDocuments[indexPath.row]
                 
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateStyle = .short
@@ -200,13 +218,13 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
             navigationController?.pushViewController(profileVC, animated: true)
             
         case "Vitals":
-            if !profile.vitalRecords.isEmpty {
+            if !vitalSigns.isEmpty {
                 let vitalsVC = VitalsListViewController()
                 navigationController?.pushViewController(vitalsVC, animated: true)
             }
             
         case "Documents":
-            if !profile.documents.isEmpty {
+            if !healthDocuments.isEmpty {
                 let documentsVC = DocumentsListViewController()
                 navigationController?.pushViewController(documentsVC, animated: true)
             }
@@ -217,8 +235,6 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
     }
     
     func tableView(_ tableView: UITableView, viewForFooterInSection section: Int) -> UIView? {
-        guard let profile = healthProfile else { return nil }
-        
         switch sections[section] {
         case "Vitals", "Documents":
             let footerView = UIView(frame: CGRect(x: 0, y: 0, width: tableView.frame.width, height: 44))
@@ -237,7 +253,7 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
             ])
             
             // Only show if there are items
-            let hasItems = section == 1 ? !profile.vitalRecords.isEmpty : !profile.documents.isEmpty
+            let hasItems = section == 1 ? !vitalSigns.isEmpty : !healthDocuments.isEmpty
             return hasItems ? footerView : nil
             
         default:
@@ -246,13 +262,11 @@ extension HealthRecordsViewController: UITableViewDelegate, UITableViewDataSourc
     }
     
     func tableView(_ tableView: UITableView, heightForFooterInSection section: Int) -> CGFloat {
-        guard let profile = healthProfile else { return 0 }
-        
         switch sections[section] {
         case "Vitals":
-            return profile.vitalRecords.isEmpty ? 0 : 44
+            return vitalSigns.isEmpty ? 0 : 44
         case "Documents":
-            return profile.documents.isEmpty ? 0 : 44
+            return healthDocuments.isEmpty ? 0 : 44
         default:
             return 0
         }
@@ -337,7 +351,7 @@ class ProfileCell: UITableViewCell {
     }
     
     func configure(with profile: HealthProfile) {
-        nameLabel.text = profile.name
+        nameLabel.text = "\(profile.firstName) \(profile.lastName)"
         
         let dateFormatter = DateFormatter()
         dateFormatter.dateStyle = .medium

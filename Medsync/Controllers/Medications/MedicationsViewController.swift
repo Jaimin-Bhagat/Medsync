@@ -55,7 +55,7 @@ class MedicationsViewController: UIViewController {
     }
     
     private func loadMedications() {
-        medications = DataStore.shared.loadMedications()
+        medications = MedicationDataStore.shared.getAllMedications()
     }
     
     @objc private func addMedicationTapped() {
@@ -102,10 +102,7 @@ extension MedicationsViewController: UITableViewDelegate, UITableViewDataSource 
             
             // Remove from data store
             medications.remove(at: indexPath.row)
-            DataStore.shared.saveMedications(medications)
-            
-            // Cancel notifications
-            NotificationService.shared.cancelMedicationReminders(for: medicationToDelete.id)
+            MedicationDataStore.shared.deleteMedication(withId: medicationToDelete.id)
             
             // Update UI
             tableView.deleteRows(at: [indexPath], with: .fade)
@@ -138,6 +135,7 @@ class MedicationCell: UITableViewCell {
         // Color indicator
         colorIndicator.translatesAutoresizingMaskIntoConstraints = false
         colorIndicator.layer.cornerRadius = 12
+        colorIndicator.backgroundColor = .systemBlue
         contentView.addSubview(colorIndicator)
         
         // Name label
@@ -180,13 +178,6 @@ class MedicationCell: UITableViewCell {
         nameLabel.text = medication.name
         dosageLabel.text = medication.dosage
         
-        // Set color indicator
-        if let colorHex = medication.color.hexToUIColor() {
-            colorIndicator.backgroundColor = colorHex
-        } else {
-            colorIndicator.backgroundColor = .systemBlue
-        }
-        
         // Find next dose
         if let nextDose = findNextDose(for: medication) {
             let formatter = DateFormatter()
@@ -204,35 +195,124 @@ class MedicationCell: UITableViewCell {
         // Get all scheduled times for today and tomorrow
         var allTimes: [Date] = []
         
-        for scheduleTime in medication.schedule {
-            let weekday = calendar.component(.weekday, from: now) // 1 = Sunday, 7 = Saturday
-            
-            if scheduleTime.daysOfWeek.contains(weekday) {
-                // Today's dose
-                if let date = calendar.date(bySettingHour: calendar.component(.hour, from: scheduleTime.time),
-                                           minute: calendar.component(.minute, from: scheduleTime.time),
-                                           second: 0,
-                                           of: now) {
-                    allTimes.append(date)
+        switch medication.frequency {
+        case .daily:
+            // Check today's doses
+            for timeString in medication.schedule {
+                if let time = timeStringToDate(timeString, on: now), time > now {
+                    allTimes.append(time)
                 }
             }
             
-            // Tomorrow's dose
-            let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
-            let tomorrowWeekday = calendar.component(.weekday, from: tomorrow)
-            
-            if scheduleTime.daysOfWeek.contains(tomorrowWeekday) {
-                if let date = calendar.date(bySettingHour: calendar.component(.hour, from: scheduleTime.time),
-                                           minute: calendar.component(.minute, from: scheduleTime.time),
-                                           second: 0,
-                                           of: tomorrow) {
-                    allTimes.append(date)
+            // If no doses left today, check tomorrow
+            if allTimes.isEmpty {
+                let tomorrow = calendar.date(byAdding: .day, value: 1, to: now)!
+                for timeString in medication.schedule {
+                    if let time = timeStringToDate(timeString, on: tomorrow) {
+                        allTimes.append(time)
+                    }
                 }
             }
+            
+        case .weekly:
+            // Check for the next 7 days
+            for dayOffset in 0..<7 {
+                let checkDate = calendar.date(byAdding: .day, value: dayOffset, to: now)!
+                let weekday = calendar.component(.weekday, from: checkDate)
+                
+                if medication.daysOfWeek.contains(weekday) {
+                    for timeString in medication.schedule {
+                        if let time = timeStringToDate(timeString, on: checkDate) {
+                            if dayOffset == 0 && time <= now {
+                                // Skip times that have already passed today
+                                continue
+                            }
+                            allTimes.append(time)
+                        }
+                    }
+                }
+            }
+            
+        case .monthly:
+            // Check current month
+            let currentDay = calendar.component(.day, from: now)
+            
+            for dayOfMonth in medication.daysOfMonth {
+                if dayOfMonth < currentDay {
+                    // This day has already passed this month, check next month
+                    if let nextMonth = calendar.date(byAdding: .month, value: 1, to: now) {
+                        var components = calendar.dateComponents([.year, .month], from: nextMonth)
+                        components.day = dayOfMonth
+                        
+                        for timeString in medication.schedule {
+                            if let time = timeStringComponents(from: timeString) {
+                                components.hour = time.hour
+                                components.minute = time.minute
+                                
+                                if let date = calendar.date(from: components) {
+                                    allTimes.append(date)
+                                }
+                            }
+                        }
+                    }
+                } else if dayOfMonth > currentDay {
+                    // This day is still coming up this month
+                    var components = calendar.dateComponents([.year, .month], from: now)
+                    components.day = dayOfMonth
+                    
+                    for timeString in medication.schedule {
+                        if let time = timeStringComponents(from: timeString) {
+                            components.hour = time.hour
+                            components.minute = time.minute
+                            
+                            if let date = calendar.date(from: components) {
+                                allTimes.append(date)
+                            }
+                        }
+                    }
+                } else {
+                    // Today is the day, check times
+                    for timeString in medication.schedule {
+                        if let time = timeStringToDate(timeString, on: now), time > now {
+                            allTimes.append(time)
+                        }
+                    }
+                }
+            }
+            
+        case .asNeeded:
+            // No scheduled doses for as-needed medications
+            return nil
         }
         
         // Find the next upcoming time
-        return allTimes.filter { $0 > now }.min(by: { $0 < $1 })
+        return allTimes.min { $0 < $1 }
+    }
+    
+    private func timeStringToDate(_ timeString: String, on date: Date) -> Date? {
+        guard let components = timeStringComponents(from: timeString) else {
+            return nil
+        }
+        
+        let calendar = Calendar.current
+        var dateComponents = calendar.dateComponents([.year, .month, .day], from: date)
+        dateComponents.hour = components.hour
+        dateComponents.minute = components.minute
+        
+        return calendar.date(from: dateComponents)
+    }
+    
+    private func timeStringComponents(from timeString: String) -> (hour: Int, minute: Int)? {
+        let components = timeString.split(separator: ":")
+        guard components.count == 2,
+              let hour = Int(components[0]),
+              let minute = Int(components[1]),
+              hour >= 0 && hour < 24,
+              minute >= 0 && minute < 60 else {
+            return nil
+        }
+        
+        return (hour: hour, minute: minute)
     }
 }
 
