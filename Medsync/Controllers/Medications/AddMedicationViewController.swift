@@ -1,5 +1,10 @@
 import UIKit
 
+struct Schedule: Codable {
+    let time: Date
+    let daysOfWeek: [Int]
+}
+
 class AddMedicationViewController: UIViewController {
     
     private let scrollView = UIScrollView()
@@ -9,7 +14,14 @@ class AddMedicationViewController: UIViewController {
     private let dosageTextField = MedSyncTextField(placeholder: "Dosage (e.g., 10mg)")
     private let instructionsTextField = MedSyncTextField(placeholder: "Instructions")
     
-    private let scheduleLabel = UILabel()
+    private let scheduleLabel: UILabel = {
+        let label = UILabel()
+        label.text = "Schedule"
+        label.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
+        label.translatesAutoresizingMaskIntoConstraints = false
+        return label
+    }()
+    
     private let scheduleTableView = UITableView(frame: .zero, style: .insetGrouped)
     private let addScheduleButton = MedSyncButton(title: "Add Schedule", style: .secondary)
     
@@ -30,7 +42,7 @@ class AddMedicationViewController: UIViewController {
     private let cancelButton = MedSyncButton(title: "Cancel", style: .secondary)
     
     private var selectedColor = "#FF5733" // Default color
-    private var scheduleTimes: [Medication.MedicationTime] = []
+    private var scheduleTimes: [Schedule] = []
     
     private let colors = [
         "#FF5733", // Red
@@ -58,7 +70,7 @@ class AddMedicationViewController: UIViewController {
         title = "Add Medication"
         view.backgroundColor = .systemGroupedBackground
         
-        // Add done button to navigation bar
+        // Add cancel button to navigation bar
         navigationItem.rightBarButtonItem = UIBarButtonItem(barButtonSystemItem: .cancel, target: self, action: #selector(cancelTapped))
     }
     
@@ -83,9 +95,10 @@ class AddMedicationViewController: UIViewController {
     }
     
     private func setupTextFields() {
-        contentView.addSubview(nameTextField)
-        contentView.addSubview(dosageTextField)
-        contentView.addSubview(instructionsTextField)
+        [nameTextField, dosageTextField, instructionsTextField].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
         
         NSLayoutConstraint.activate([
             nameTextField.topAnchor.constraint(equalTo: contentView.topAnchor, constant: 20),
@@ -98,15 +111,11 @@ class AddMedicationViewController: UIViewController {
             
             instructionsTextField.topAnchor.constraint(equalTo: dosageTextField.bottomAnchor, constant: 16),
             instructionsTextField.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            instructionsTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            instructionsTextField.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
     }
     
     private func setupScheduleSection() {
-        scheduleLabel.text = "Schedule"
-        scheduleLabel.font = UIFont.systemFont(ofSize: 18, weight: .semibold)
-        scheduleLabel.translatesAutoresizingMaskIntoConstraints = false
-        
         scheduleTableView.translatesAutoresizingMaskIntoConstraints = false
         scheduleTableView.delegate = self
         scheduleTableView.dataSource = self
@@ -116,9 +125,7 @@ class AddMedicationViewController: UIViewController {
         addScheduleButton.translatesAutoresizingMaskIntoConstraints = false
         addScheduleButton.addTarget(self, action: #selector(addScheduleTapped), for: .touchUpInside)
         
-        contentView.addSubview(scheduleLabel)
-        contentView.addSubview(scheduleTableView)
-        contentView.addSubview(addScheduleButton)
+        [scheduleLabel, scheduleTableView, addScheduleButton].forEach { contentView.addSubview($0) }
         
         NSLayoutConstraint.activate([
             scheduleLabel.topAnchor.constraint(equalTo: instructionsTextField.bottomAnchor, constant: 24),
@@ -131,7 +138,7 @@ class AddMedicationViewController: UIViewController {
             
             addScheduleButton.topAnchor.constraint(equalTo: scheduleTableView.bottomAnchor, constant: 8),
             addScheduleButton.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            addScheduleButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            addScheduleButton.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
     }
     
@@ -146,8 +153,7 @@ class AddMedicationViewController: UIViewController {
         colorCollectionView.register(ColorCell.self, forCellWithReuseIdentifier: "ColorCell")
         colorCollectionView.backgroundColor = .clear
         
-        contentView.addSubview(colorLabel)
-        contentView.addSubview(colorCollectionView)
+        [colorLabel, colorCollectionView].forEach { contentView.addSubview($0) }
         
         NSLayoutConstraint.activate([
             colorLabel.topAnchor.constraint(equalTo: addScheduleButton.bottomAnchor, constant: 24),
@@ -173,9 +179,7 @@ class AddMedicationViewController: UIViewController {
         refillDatePicker.minimumDate = Date()
         refillDatePicker.isHidden = true
         
-        contentView.addSubview(refillReminderLabel)
-        contentView.addSubview(refillReminderSwitch)
-        contentView.addSubview(refillDatePicker)
+        [refillReminderLabel, refillReminderSwitch, refillDatePicker].forEach { contentView.addSubview($0) }
         
         NSLayoutConstraint.activate([
             refillReminderLabel.topAnchor.constraint(equalTo: colorCollectionView.bottomAnchor, constant: 24),
@@ -186,19 +190,18 @@ class AddMedicationViewController: UIViewController {
             
             refillDatePicker.topAnchor.constraint(equalTo: refillReminderLabel.bottomAnchor, constant: 16),
             refillDatePicker.leadingAnchor.constraint(equalTo: contentView.leadingAnchor, constant: 20),
-            refillDatePicker.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20),
+            refillDatePicker.trailingAnchor.constraint(equalTo: contentView.trailingAnchor, constant: -20)
         ])
     }
     
     private func setupButtons() {
-        saveButton.translatesAutoresizingMaskIntoConstraints = false
+        [saveButton, cancelButton].forEach {
+            $0.translatesAutoresizingMaskIntoConstraints = false
+            contentView.addSubview($0)
+        }
+        
         saveButton.addTarget(self, action: #selector(saveTapped), for: .touchUpInside)
-        
-        cancelButton.translatesAutoresizingMaskIntoConstraints = false
         cancelButton.addTarget(self, action: #selector(cancelTapped), for: .touchUpInside)
-        
-        contentView.addSubview(saveButton)
-        contentView.addSubview(cancelButton)
         
         NSLayoutConstraint.activate([
             saveButton.topAnchor.constraint(equalTo: refillDatePicker.bottomAnchor, constant: 24),
@@ -238,32 +241,34 @@ class AddMedicationViewController: UIViewController {
             showAlert(message: "Please add at least one schedule")
             return
         }
+
+        // Convert Schedule objects to string format required by Medication model
+        let scheduleStrings = scheduleTimes.map { schedule -> String in
+            let formatter = DateFormatter()
+            formatter.dateFormat = "HH:mm"
+            return formatter.string(from: schedule.time)
+        }
         
-        // Create medication
         let medication = Medication(
             name: name,
             dosage: dosage,
-            schedule: scheduleTimes,
-            instructions: instructionsTextField.text ?? "",
-            color: selectedColor,
-            imageURL: nil,
-            refillDate: refillReminderSwitch.isOn ? refillDatePicker.date : nil,
-            refillReminder: refillReminderSwitch.isOn,
-            remainingDoses: nil
+            frequency: .daily,
+            schedule: scheduleStrings,
+            daysOfWeek: scheduleTimes.first?.daysOfWeek ?? [],
+            daysOfMonth: [],
+            startDate: Date(),
+            instructions: instructionsTextField.text,
+            reminderEnabled: true,
+            refillThreshold: 5,
+            quantityRemaining: 30
         )
         
         // Save to data store
-        var medications = DataStore.shared.loadMedications()
-        medications.append(medication)
-        DataStore.shared.saveMedications(medications)
+        MedicationDataStore.shared.saveMedication(medication)
         
-        // Schedule notifications
+        // Schedule notifications for each time in the schedule
         for scheduleTime in scheduleTimes {
-            NotificationService.shared.scheduleMedicationReminder(for: medication, at: scheduleTime.time)
-        }
-        
-        if refillReminderSwitch.isOn {
-            NotificationService.shared.scheduleRefillReminder(for: medication)
+            NotificationService.shared.scheduleNotification(for: medication, at: scheduleTime.time)
         }
         
         dismiss(animated: true)
@@ -285,37 +290,35 @@ class AddMedicationViewController: UIViewController {
 extension AddMedicationViewController: UITableViewDelegate, UITableViewDataSource {
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return scheduleTimes.isEmpty ? 1 : scheduleTimes.count
+        return scheduleTimes.count
     }
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        if scheduleTimes.isEmpty {
-            let cell = UITableViewCell()
-            cell.textLabel?.text = "No schedules added"
-            cell.textLabel?.textColor = .secondaryLabel
-            cell.selectionStyle = .none
-            return cell
-        }
+        let cell = tableView.dequeueReusableCell(withIdentifier: "ScheduleCell", for: indexPath)
+        let schedule = scheduleTimes[indexPath.row]
         
-        guard let cell = tableView.dequeueReusableCell(withIdentifier: "ScheduleCell", for: indexPath) as? ScheduleCell else {
-            return UITableViewCell()
-        }
+        // Format time
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        let timeString = formatter.string(from: schedule.time)
         
-        let scheduleTime = scheduleTimes[indexPath.row]
-        cell.configure(with: scheduleTime)
+        // Format days
+        let days = schedule.daysOfWeek.map { dayNumberToString($0) }.joined(separator: ", ")
         
+        cell.textLabel?.text = "\(timeString) - \(days)"
         return cell
     }
     
     func tableView(_ tableView: UITableView, commit editingStyle: UITableViewCell.EditingStyle, forRowAt indexPath: IndexPath) {
-        if editingStyle == .delete && !scheduleTimes.isEmpty {
+        if editingStyle == .delete {
             scheduleTimes.remove(at: indexPath.row)
-            tableView.reloadData()
+            tableView.deleteRows(at: [indexPath], with: .fade)
         }
     }
     
-    func tableView(_ tableView: UITableView, canEditRowAt indexPath: IndexPath) -> Bool {
-        return !scheduleTimes.isEmpty
+    private func dayNumberToString(_ day: Int) -> String {
+        let formatter = DateFormatter()
+        return formatter.shortWeekdaySymbols[day - 1]
     }
 }
 
@@ -348,7 +351,7 @@ extension AddMedicationViewController: UICollectionViewDelegate, UICollectionVie
 
 extension AddMedicationViewController: AddScheduleViewControllerDelegate {
     
-    func didAddSchedule(_ schedule: Medication.MedicationTime) {
+    func didAddSchedule(_ schedule: Schedule) {
         scheduleTimes.append(schedule)
         scheduleTableView.reloadData()
     }
@@ -394,7 +397,7 @@ class ScheduleCell: UITableViewCell {
         ])
     }
     
-    func configure(with schedule: Medication.MedicationTime) {
+    func configure(with schedule: Schedule) {
         let formatter = DateFormatter()
         formatter.timeStyle = .short
         timeLabel.text = formatter.string(from: schedule.time)
@@ -475,7 +478,7 @@ class ColorCell: UICollectionViewCell {
 // MARK: - AddScheduleViewController
 
 protocol AddScheduleViewControllerDelegate: AnyObject {
-    func didAddSchedule(_ schedule: Medication.MedicationTime)
+    func didAddSchedule(_ schedule: Schedule)
 }
 
 class AddScheduleViewController: UIViewController {
@@ -515,8 +518,8 @@ class AddScheduleViewController: UIViewController {
         
         NSLayoutConstraint.activate([
             timePicker.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 20),
-            timePicker.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            timePicker.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            timePicker.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            timePicker.trailingAnchor.constraint(equalTo: view.trailingAnchor)
         ])
     }
     
@@ -596,7 +599,7 @@ class AddScheduleViewController: UIViewController {
             return
         }
         
-        let schedule = Medication.MedicationTime(time: timePicker.date, daysOfWeek: selectedDays)
+        let schedule = Schedule(time: timePicker.date, daysOfWeek: selectedDays)
         delegate?.didAddSchedule(schedule)
         dismiss(animated: true)
     }

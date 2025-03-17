@@ -161,7 +161,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, UNUserNotificationCenterD
     private func snoozeMedicationReminder(_ medication: Medication) {
         // Reschedule the reminder for 15 minutes later
         let snoozeDate = Date().addingTimeInterval(15 * 60)
-        NotificationService.shared.scheduleMedicationReminder(medication: medication, date: snoozeDate)
+        NotificationService.shared.scheduleMedicationReminder(for: medication, at: snoozeDate)
         print("Medication \(medication.name) reminder snoozed for 15 minutes")
     }
 }

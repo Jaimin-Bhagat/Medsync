@@ -104,8 +104,8 @@ extension HealthRemindersViewController: UITableViewDelegate, UITableViewDataSou
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
         
-        let upcomingReminders = reminders.filter { !$0.completed }
-        let completedReminders = reminders.filter { $0.completed }
+        let upcomingReminders = reminders.filter { $0.status != .completed }
+        let completedReminders = reminders.filter { $0.status == .completed }
         
         let reminder = indexPath.section == 0 ? upcomingReminders[indexPath.row] : completedReminders[indexPath.row]
         let detailVC = ReminderDetailViewController(reminder: reminder)
@@ -117,18 +117,18 @@ extension HealthRemindersViewController: UITableViewDelegate, UITableViewDataSou
     }
     
     func tableView(_ tableView: UITableView, trailingSwipeActionsConfigurationForRowAt indexPath: IndexPath) -> UISwipeActionsConfiguration? {
-        let upcomingReminders = reminders.filter { !$0.completed }
-        let completedReminders = reminders.filter { $0.completed }
+        let upcomingReminders = reminders.filter { $0.status != .completed }
+        let completedReminders = reminders.filter { $0.status == .completed }
         
         var reminder = indexPath.section == 0 ? upcomingReminders[indexPath.row] : completedReminders[indexPath.row]
         
         // Complete/Uncomplete action
-        let completeTitle = reminder.completed ? "Mark Incomplete" : "Complete"
+        let completeTitle = reminder.status == .completed ? "Mark Incomplete" : "Complete"
         let completeAction = UIContextualAction(style: .normal, title: completeTitle) { [weak self] (_, _, completion) in
             guard let self = self else { return }
             
             // Toggle completed status
-            reminder.completed = !reminder.completed
+            reminder.status = reminder.status == .completed ? .pending : .completed
             
             // Update in data store
             if let index = self.reminders.firstIndex(where: { $0.id == reminder.id }) {
@@ -141,7 +141,7 @@ extension HealthRemindersViewController: UITableViewDelegate, UITableViewDataSou
             
             completion(true)
         }
-        completeAction.backgroundColor = reminder.completed ? .systemOrange : .systemGreen
+        completeAction.backgroundColor = reminder.status == .completed ? .systemOrange : .systemGreen
         
         // Delete action
         let deleteAction = UIContextualAction(style: .destructive, title: "Delete") { [weak self] (_, _, completion) in

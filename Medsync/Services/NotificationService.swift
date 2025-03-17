@@ -18,7 +18,7 @@ class NotificationService {
     }
     
     // Schedule a medication reminder notification
-    func scheduleMedicationReminder(medication: Medication, date: Date) {
+    func scheduleMedicationReminder(for medication: Medication, at time: Date) {
         let content = UNMutableNotificationContent()
         content.title = "Medication Reminder"
         content.body = "Time to take \(medication.name) - \(medication.dosage)"
@@ -27,11 +27,11 @@ class NotificationService {
         content.userInfo = ["medicationId": medication.id]
         
         // Create a calendar-based trigger
-        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: date)
+        let components = Calendar.current.dateComponents([.year, .month, .day, .hour, .minute], from: time)
         let trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
         
         // Create the request
-        let identifier = "medication-\(medication.id)-\(date.timeIntervalSince1970)"
+        let identifier = "medication-\(medication.id)-\(time.timeIntervalSince1970)"
         let request = UNNotificationRequest(identifier: identifier, content: content, trigger: trigger)
         
         // Add the request to the notification center
